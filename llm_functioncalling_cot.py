@@ -152,7 +152,7 @@ def create_agent_executor() -> AgentExecutor:
         base_url="http://localhost:11434/v1",
         api_key="ollama",
         model=model_name,
-        temperature=0.9
+        temperature=0.2  # 降低温度，使模型更严格遵守指令
     )
     
     # 创建工具列表
@@ -160,17 +160,19 @@ def create_agent_executor() -> AgentExecutor:
     
     # 创建提示模板 - 优化版本，使指令更加明确和具体
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一个严格遵守指令的智能助手。\n" \
-                    "当用户要求分析运动报告时，你**必须严格按照以下步骤执行，不能有任何偏差**：\n" \
-                    "步骤1：首先调用`my_sport_report`工具获取完整的运动报告文本。\n" \
-                    "步骤2：等待并接收`my_sport_report`工具返回的运动报告文本。\n" \
-                    "步骤3：**必须将步骤2中获取的完整运动报告文本**作为`report`参数的值，**完整复制粘贴**到`analyze_sport_report`工具中。\n" \
-                    "步骤4：等待并接收`analyze_sport_report`工具返回的分析结果。\n" \
-                    "步骤5：将`analyze_sport_report`工具返回的分析结果直接作为最终答案提供给用户。\n" \
-                    "重要规则：\n" \
-                    "- 你**绝对不能自己分析报告内容**，必须完全依赖`analyze_sport_report`工具的分析结果。\n" \
-                    "- 你**必须确保**执行完所有步骤，特别是步骤3，不能在获取报告后就停止。\n" \
-                    "- 请严格按照上述步骤顺序执行，不要跳过任何步骤。"),
+        ("system", "你是一个严格遵守指令的智能助手。\n"
+                    "当用户要求分析运动报告时，你**必须严格按照以下步骤执行，不能有任何偏差**：\n"
+                    "步骤1：首先调用`my_sport_report`工具获取完整的运动报告文本。\n"
+                    "步骤2：等待并接收`my_sport_report`工具返回的运动报告文本。\n"
+                    "步骤3：**必须将步骤2中获取的完整运动报告文本**作为`report`参数的值，**完整复制粘贴**到`analyze_sport_report`工具中。\n"
+                    "步骤4：等待并接收`analyze_sport_report`工具返回的分析结果。\n"
+                    "步骤5：将`analyze_sport_report`工具返回的分析结果直接作为最终答案提供给用户。\n"
+                    "重要规则：\n"
+                    "- 你**绝对不能自己分析报告内容**，必须完全依赖`analyze_sport_report`工具的分析结果。\n"
+                    "- 你**必须确保**执行完所有步骤，特别是步骤3，不能在获取报告后就停止。\n"
+                    "- 请严格按照上述步骤顺序执行，不要跳过任何步骤。\n"
+                    "- 如果你没有调用`analyze_sport_report`工具，那么你的回答就是不完整和错误的。\n"
+                    "- 请在思考过程中明确说明你将如何执行这些步骤。"),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -186,13 +188,16 @@ def create_agent_executor() -> AgentExecutor:
     # 创建内存组件
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     
-    # 创建Agent执行器 - 增加verbose=True以查看详细日志
+    # 创建Agent执行器 - 优化配置
     agent_executor = AgentExecutor.from_agent_and_tools(
         agent=agent,
         tools=tools,
         memory=memory,
-        verbose=True,
-        handle_parsing_errors=True
+        verbose=True,  # 启用详细日志
+        handle_parsing_errors=True,
+        max_iterations=5,  # 增加最大迭代次数
+        early_stopping_method="force",  # 强制完成所有步骤
+        return_intermediate_steps=True  # 返回中间步骤以调试
     )
     
     return agent_executor
@@ -207,6 +212,17 @@ def process_with_langchain(message: str) -> str:
         print(f"用户请求: {message}")
         # 执行Agent
         result = agent_executor.invoke({"input": message})
+        print(f"\n=======Agent执行结果详情=======")
+        # 打印中间步骤，用于调试
+        if "intermediate_steps" in result:
+            for i, step in enumerate(result["intermediate_steps"]):
+                print(f"\n步骤{i+1}:")
+                if len(step) > 0 and hasattr(step[0], 'tool'):
+                    print(f"  调用工具: {step[0].tool}")
+                    print(f"  工具参数: {step[0].tool_input}")
+                if len(step) > 1:
+                    print(f"  工具返回: {str(step[1])[:200]}...")  # 限制输出长度
+        
         print(f"\n=======处理结果=======")
         print(f"最终输出: {result['output']}")
         return result["output"]
