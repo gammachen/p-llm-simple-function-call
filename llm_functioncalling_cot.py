@@ -60,17 +60,8 @@ def my_sport_report():
         with open("sport_tracing.md", "r") as f:
             report = f.read()
         
-        # 限制报告长度，防止因内容过长导致处理问题
-        # max_length = 1000  # 设置适当的最大长度
-        # if len(report) > max_length:
-        #     # 保留报告的开头和结尾的关键信息
-        #     truncated_report = report[:max_length//2] + "\n[报告内容过长，部分省略]\n" + report[-max_length//2:]
-        # else:
-        #     truncated_report = report
-            
-        truncated_report = report
         # 确保返回的内容格式清晰，让LLM能正确理解这是一个完整的报告
-        return f"完整运动报告如下：\n{truncated_report}"
+        return f"完整运动报告如下：\n{report}"
     except Exception as e:
         return f"读取运动报告失败: {str(e)}"
 
@@ -135,12 +126,12 @@ def create_langchain_tools() -> List[Tool]:
         StructuredTool.from_function(
             func=my_sport_report,
             name="my_sport_report",
-            description="获取用户的运动报告，不需要输入参数。当用户要求分析运动报告时，必须首先调用此工具获取报告文本。"
+            description="获取用户的运动报告，不需要输入参数。当用户要求分析运动报告时，**必须首先调用此工具**获取报告文本。"
         ),
         StructuredTool.from_function(
             func=analyze_sport_report,
             name="analyze_sport_report",
-            description="**这是唯一能分析运动报告的工具**，当用户要求分析运动报告时，必须使用此工具。需要将通过my_sport_report工具获取的完整运动报告文本作为report参数输入。"
+            description="**这是唯一能分析运动报告的工具**，当用户要求分析运动报告时，**必须使用此工具**。**必须**将通过my_sport_report工具获取的完整运动报告文本作为report参数输入。**不调用此工具，你的任务就没有完成**。"
         )
     ]
     return tools
@@ -152,27 +143,28 @@ def create_agent_executor() -> AgentExecutor:
         base_url="http://localhost:11434/v1",
         api_key="ollama",
         model=model_name,
-        temperature=0.2  # 降低温度，使模型更严格遵守指令
+        temperature=0.1  # 进一步降低温度，使模型更严格遵守指令
     )
     
     # 创建工具列表
     tools = create_langchain_tools()
     
-    # 创建提示模板 - 优化版本，使指令更加明确和具体
+    # 创建提示模板 - 进一步增强版本，指令更加明确和强制
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一个严格遵守指令的智能助手。\n"
-                    "当用户要求分析运动报告时，你**必须严格按照以下步骤执行，不能有任何偏差**：\n"
-                    "步骤1：首先调用`my_sport_report`工具获取完整的运动报告文本。\n"
-                    "步骤2：等待并接收`my_sport_report`工具返回的运动报告文本。\n"
-                    "步骤3：**必须将步骤2中获取的完整运动报告文本**作为`report`参数的值，**完整复制粘贴**到`analyze_sport_report`工具中。\n"
-                    "步骤4：等待并接收`analyze_sport_report`工具返回的分析结果。\n"
-                    "步骤5：将`analyze_sport_report`工具返回的分析结果直接作为最终答案提供给用户。\n"
-                    "重要规则：\n"
+        ("system", "你是一个**必须严格遵守指令**的智能助手。\n"
+                    "当用户要求分析运动报告时，你**绝对不能有任何偏差**，**必须**严格按照以下步骤执行：\n"
+                    "步骤1：**立即调用**`my_sport_report`工具获取完整的运动报告文本。\n"
+                    "步骤2：**等待**并接收`my_sport_report`工具返回的运动报告文本。\n"
+                    "步骤3：**获取报告后，你必须立即将完整的运动报告文本**作为`report`参数的值，**完整复制粘贴**到`analyze_sport_report`工具中。\n"
+                    "步骤4：**等待**并接收`analyze_sport_report`工具返回的分析结果。\n"
+                    "步骤5：**将`analyze_sport_report`工具返回的分析结果直接**作为最终答案提供给用户。\n"
+                    "\n"
+                    "**最重要的规则**：\n"
                     "- 你**绝对不能自己分析报告内容**，必须完全依赖`analyze_sport_report`工具的分析结果。\n"
-                    "- 你**必须确保**执行完所有步骤，特别是步骤3，不能在获取报告后就停止。\n"
-                    "- 请严格按照上述步骤顺序执行，不要跳过任何步骤。\n"
-                    "- 如果你没有调用`analyze_sport_report`工具，那么你的回答就是不完整和错误的。\n"
-                    "- 请在思考过程中明确说明你将如何执行这些步骤。"),
+                    "- 你**必须确保**执行完所有步骤，**特别是步骤3**，**不能在获取报告后就停止**。\n"
+                    "- 如果你没有调用`analyze_sport_report`工具，那么你的回答就是**完全错误的**。\n"
+                    "- 请在思考过程中**明确声明你将严格执行这些步骤**，并**在获取报告后立即调用analyze_sport_report工具**。\n"
+                    "- 请在执行每一步时**明确告诉用户你正在执行哪一步**。"),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -188,16 +180,16 @@ def create_agent_executor() -> AgentExecutor:
     # 创建内存组件
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     
-    # 创建Agent执行器 - 优化配置
+    # 创建Agent执行器 - 进一步优化配置
     agent_executor = AgentExecutor.from_agent_and_tools(
         agent=agent,
         tools=tools,
         memory=memory,
-        verbose=True,  # 启用详细日志
+        verbose=True,
         handle_parsing_errors=True,
-        max_iterations=5,  # 增加最大迭代次数
-        early_stopping_method="force",  # 强制完成所有步骤
-        return_intermediate_steps=True  # 返回中间步骤以调试
+        max_iterations=10,  # 进一步增加最大迭代次数
+        early_stopping_method="force",
+        return_intermediate_steps=True
     )
     
     return agent_executor
@@ -210,8 +202,13 @@ def process_with_langchain(message: str) -> str:
     try:
         print(f"\n=======开始处理请求=======")
         print(f"用户请求: {message}")
-        # 执行Agent
+        # 执行Agent - 设置为更直接的链式调用
         result = agent_executor.invoke({"input": message})
+        
+        # 专门检查是否已经调用了analyze_sport_report工具
+        analyze_called = False
+        final_analysis = ""
+        
         print(f"\n=======Agent执行结果详情=======")
         # 打印中间步骤，用于调试
         if "intermediate_steps" in result:
@@ -220,8 +217,32 @@ def process_with_langchain(message: str) -> str:
                 if len(step) > 0 and hasattr(step[0], 'tool'):
                     print(f"  调用工具: {step[0].tool}")
                     print(f"  工具参数: {step[0].tool_input}")
+                    # 检查是否已调用analyze_sport_report
+                    if step[0].tool == "analyze_sport_report":
+                        analyze_called = True
                 if len(step) > 1:
                     print(f"  工具返回: {str(step[1])[:200]}...")  # 限制输出长度
+                    # 保存分析报告结果
+                    if i == len(result["intermediate_steps"]) - 1:
+                        final_analysis = str(step[1])
+        
+        # 如果没有调用analyze_sport_report，手动调用它
+        if not analyze_called:
+            print(f"\n=======检测到未调用analyze_sport_report工具，正在手动调用=======")
+            # 从中间步骤中查找my_sport_report的结果
+            sport_report = None
+            for step in result["intermediate_steps"]:
+                if len(step) > 0 and hasattr(step[0], 'tool') and step[0].tool == "my_sport_report":
+                    sport_report = step[1]
+                    break
+            
+            # 如果找到了运动报告，调用analyze_sport_report
+            if sport_report:
+                print(f"  找到运动报告，正在调用analyze_sport_report进行分析...")
+                final_analysis = analyze_sport_report(sport_report)
+                result["output"] = final_analysis
+            else:
+                print("  未找到运动报告，无法进行分析")
         
         print(f"\n=======处理结果=======")
         print(f"最终输出: {result['output']}")
