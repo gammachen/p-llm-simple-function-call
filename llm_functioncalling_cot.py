@@ -10,6 +10,14 @@ from langchain.tools import Tool, StructuredTool
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 
+from print import slow_print_file
+
+import colorama
+from colorama import Fore, Style
+
+# 初始化colorama
+colorama.init()
+
 # 配置OpenAI客户端
 client = OpenAI(
     base_url="http://localhost:11434/v1",
@@ -22,57 +30,69 @@ model_name = "qwen2"
 
 # 工具函数定义
 def solve(symbols: str, equation: str):
-    print(f"function: {solve.__name__} \nsymbols: {symbols} \nequation: {equation}")
+    print(f"{Fore.CYAN}🔍 调用函数: {Fore.YELLOW}{solve.__name__}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}   符号: {Fore.WHITE}{symbols}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}   方程: {Fore.WHITE}{equation}{Style.RESET_ALL}")
     x = sp.symbols('x')
     _equation = sp.sympify(equation.split('=')[0])
     _equation = sp.Eq(_equation, 0)
     solutions = sp.solve(_equation, x)
     result = {"symbols": symbols, "equation": equation,
               "solutions": str(solutions)}
+    print(f"{Fore.MAGENTA}✅ 结果: {Fore.WHITE}{result}{Style.RESET_ALL}")
     return result
 
 def multiply(multiplicand: float, multiplier: float):
-    print(
-        f"function: {multiply.__name__} \nmultiplicand: {multiplicand} \nmultiplier: {multiplier}")
+    print(f"{Fore.CYAN}🔍 调用函数: {Fore.YELLOW}{multiply.__name__}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}   被乘数: {Fore.WHITE}{multiplicand}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}   乘数: {Fore.WHITE}{multiplier}{Style.RESET_ALL}")
     result = {"value": multiplicand * multiplier}
+    print(f"{Fore.MAGENTA}✅ 结果: {Fore.WHITE}{result}{Style.RESET_ALL}")
     return result
 
 def my_health_report():
     '''
     获取我的健康报告
     '''
-    print(f"function: {my_health_report.__name__}")
+    print(f"{Fore.CYAN}📋 调用函数: {Fore.YELLOW}{my_health_report.__name__}{Style.RESET_ALL}")
     try:
         # 从本地文件中读取健康报告
         with open("health_report.md", "r") as f:
             report = f.read()
+        print(f"{Fore.GREEN}✅ 成功获取健康报告{Style.RESET_ALL}")
         return report
     except Exception as e:
+        print(f"{Fore.RED}❌ 读取健康报告失败: {str(e)}{Style.RESET_ALL}")
         return f"读取健康报告失败: {str(e)}"
 
 def my_sport_report():
     '''
     获取我的运动报告
     '''
-    print(f"function: {my_sport_report.__name__}")
+    print(f"{Fore.CYAN}🏃 调用函数: {Fore.YELLOW}{my_sport_report.__name__}{Style.RESET_ALL}")
     try:
         # 从本地文件中读取运动报告
         with open("sport_tracing.md", "r") as f:
             report = f.read()
         
         # 确保返回的内容格式清晰，让LLM能正确理解这是一个完整的报告
+        print(f"{Fore.GREEN}✅ 成功获取运动报告{Style.RESET_ALL}")
         return f"完整运动报告如下：\n{report}"
     except Exception as e:
+        print(f"{Fore.RED}❌ 读取运动报告失败: {str(e)}{Style.RESET_ALL}")
         return f"读取运动报告失败: {str(e)}"
 
 def analyze_sport_report(report: str):
     '''
     分析运动报告
     '''
-    print(f"\n=======analyze_sport_report函数被调用=======\n")
-    print(f"接收到的report参数类型: {type(report)}")
-    print(f"接收到的report参数长度: {len(report)}字符")
-    print(f"接收到的report参数内容预览(前100个字符): {report[:2000] if report else '空'}\n")
+    print(f"{Fore.BLUE}{'='*50}{Style.RESET_ALL}")
+    print(f"{Fore.BLUE}📊 ANALYZE_SPORT_REPORT 函数被调用{Style.RESET_ALL}")
+    print(f"{Fore.BLUE}{'='*50}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}📝 接收到的report参数类型: {Fore.WHITE}{type(report)}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}📝 接收到的report参数长度: {Fore.WHITE}{len(report)}字符{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}📝 接收到的report参数内容预览(前2000个字符):")
+    print(f"{Fore.WHITE}{report[:2000] if report else '空'}{Style.RESET_ALL}")
     
     try:
         # 使用思维链(CoT)提示直接调用OpenAI客户端
@@ -90,7 +110,7 @@ def analyze_sport_report(report: str):
             """}
         ]
         
-        print(f"发送 {messages} 请求到OpenAI API")
+        print(f"{Fore.CYAN}🚀 发送请求到OpenAI API...{Style.RESET_ALL}")
         
         response = client.chat.completions.create(
             model=model_name,
@@ -98,11 +118,12 @@ def analyze_sport_report(report: str):
             temperature=0.9
         )
         
-        print("=======analyze_sport_report分析完成=======\n")
+        print(f"{Fore.GREEN}✅ ANALYZE_SPORT_REPORT 分析完成{Style.RESET_ALL}")
         
         return response.choices[0].message.content
     except Exception as e:
-        print(f"=======analyze_sport_report函数执行出错=======\n{str(e)}\n")
+        print(f"{Fore.RED}❌ ANALYZE_SPORT_REPORT 函数执行出错:")
+        print(f"{Fore.RED}{str(e)}{Style.RESET_ALL}")
         return f"分析运动报告失败: {str(e)}"
 
 # 创建LangChain工具列表
@@ -200,8 +221,11 @@ def process_with_langchain(message: str) -> str:
     agent_executor = create_agent_executor()
     
     try:
-        print(f"\n=======开始处理请求=======")
-        print(f"用户请求: {message}")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}🎯 开始处理请求{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}用户请求: {Fore.YELLOW}{message}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
+        
         # 执行Agent - 设置为更直接的链式调用
         result = agent_executor.invoke({"input": message})
         
@@ -209,26 +233,32 @@ def process_with_langchain(message: str) -> str:
         analyze_called = False
         final_analysis = ""
         
-        print(f"\n=======Agent执行结果详情=======")
+        print(f"{Fore.BLUE}{'='*60}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}🔍 Agent执行结果详情{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}{'='*60}{Style.RESET_ALL}")
+        
         # 打印中间步骤，用于调试
         if "intermediate_steps" in result:
             for i, step in enumerate(result["intermediate_steps"]):
-                print(f"\n步骤{i+1}:")
+                print(f"{Fore.CYAN}\n📌 步骤{i+1}:{Style.RESET_ALL}")
                 if len(step) > 0 and hasattr(step[0], 'tool'):
-                    print(f"  调用工具: {step[0].tool}")
-                    print(f"  工具参数: {step[0].tool_input}")
+                    print(f"{Fore.YELLOW}   调用工具: {Fore.WHITE}{step[0].tool}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}   工具参数: {Fore.WHITE}{step[0].tool_input}{Style.RESET_ALL}")
                     # 检查是否已调用analyze_sport_report
                     if step[0].tool == "analyze_sport_report":
                         analyze_called = True
                 if len(step) > 1:
-                    print(f"  工具返回: {str(step[1])[:200]}...")  # 限制输出长度
+                    print(f"{Fore.MAGENTA}   工具返回: {Fore.WHITE}{str(step[1])[:200]}...{Style.RESET_ALL}")  # 限制输出长度
                     # 保存分析报告结果
                     if i == len(result["intermediate_steps"]) - 1:
                         final_analysis = str(step[1])
         
         # 如果没有调用analyze_sport_report，手动调用它
         if not analyze_called:
-            print(f"\n=======检测到未调用analyze_sport_report工具，正在手动调用=======")
+            print(f"{Fore.RED}{'='*60}{Style.RESET_ALL}")
+            print(f"{Fore.RED}⚠️  检测到未调用analyze_sport_report工具，正在手动调用{Style.RESET_ALL}")
+            print(f"{Fore.RED}{'='*60}{Style.RESET_ALL}")
+            
             # 从中间步骤中查找my_sport_report的结果
             sport_report = None
             for step in result["intermediate_steps"]:
@@ -238,20 +268,22 @@ def process_with_langchain(message: str) -> str:
             
             # 如果找到了运动报告，调用analyze_sport_report
             if sport_report:
-                print(f"  找到运动报告，正在调用analyze_sport_report进行分析...")
+                print(f"{Fore.GREEN}   📊 找到运动报告，正在调用analyze_sport_report进行分析...{Style.RESET_ALL}")
                 final_analysis = analyze_sport_report(sport_report)
                 result["output"] = final_analysis
             else:
-                print("  未找到运动报告，无法进行分析")
+                print(f"{Fore.RED}   ❌ 未找到运动报告，无法进行分析{Style.RESET_ALL}")
         
-        print(f"\n=======处理结果=======")
-        print(f"最终输出: {result['output']}")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}📋 处理结果{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}最终输出: {Fore.WHITE}{result['output']}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
         return result["output"]
     except Exception as e:
-        print(f"处理请求时出错: {str(e)}")
+        print(f"{Fore.RED}❌ 处理请求时出错: {str(e)}{Style.RESET_ALL}")
         return f"处理请求时出错: {str(e)}"
     finally:
-        print("\n=======处理完成=======")
+        print(f"{Fore.GREEN}✅ 处理完成{Style.RESET_ALL}")
 
 # 原始实现，保留以作比较
 def parse_llm_response(model_response, messages):
@@ -270,15 +302,16 @@ def parse_llm_response(model_response, messages):
         elif tool_call.function.name == "analyze_sport_report":
             # 修复：确保正确解析参数并处理可能的空值
             try:
-                print("args from function analyze_sport_report:", args)
+                print(f"{Fore.CYAN}🔍 解析analyze_sport_report参数:{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}   args: {Fore.WHITE}{args}{Style.RESET_ALL}")
                 args_dict = json.loads(args)
                 report = args_dict.get('report')
                 if report is None:
-                    print("警告: report参数为空，尝试获取最近的运动报告")
+                    print(f"{Fore.RED}⚠️  警告: report参数为空，尝试获取最近的运动报告{Style.RESET_ALL}")
                     report = my_sport_report()  # 备用方案
                 function_result = analyze_sport_report(report)
             except Exception as e:
-                print(f"解析参数或调用analyze_sport_report时出错: {str(e)}")
+                print(f"{Fore.RED}❌ 解析参数或调用analyze_sport_report时出错: {str(e)}{Style.RESET_ALL}")
                 function_result = {"error": str(e)}
         else:
             function_result = {}
@@ -432,22 +465,27 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"处理过程中出错: {str(e)}")
     #  
-    # print("\n=======处理完成=======")
+    # print("\n=======处理完成======="))
 
     # 以下是LangChain实现，暂时注释掉
-    print("============使用LangChain分析个人近期的运动报告============ ")
+    print(f"{Fore.MAGENTA}{'='*80}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}🚀 使用LangChain分析个人近期的运动报告{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{'='*80}{Style.RESET_ALL}")
     result = process_with_langchain("分析我的运动报告")
     print(result)
     
     # 使用原始的OpenAI函数调用实现
-    print("===========使用原始OpenAI函数调用分析个人近期的运动报告============")
+    print(f"{Fore.CYAN}{'='*80}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}🤖 使用原始OpenAI函数调用分析个人近期的运动报告{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'='*80}{Style.RESET_ALL}")
     try:
         result = llm_call("分析我的运动报告")
-        print("\n=======分析结果=======")
-        print(result)
-        print("\n=======处理完成=======")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}📊 分析结果{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}{result}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'='*60}{Style.RESET_ALL}")
     except Exception as e:
-        print(f"处理过程中出错: {str(e)}")
+        print(f"{Fore.RED}❌ 处理过程中出错: {str(e)}{Style.RESET_ALL}")
     
     # # 以下是其他调用示例，保留以作比较
     # print("============求解方程============")
@@ -468,3 +506,16 @@ if __name__ == "__main__":
     # 
     # print("===========获取个人近期的运动报告============")
     # print(llm_call("近期的运动报告"))
+    
+    print(f"{Fore.YELLOW}{'='*100}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}📋 比较两个简单Function call与LangChain的COT Function Call的实现{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{'='*100}{Style.RESET_ALL}")
+    
+    print(f"{Fore.GREEN}📊 简单Function call的实现{Style.RESET_ALL}")
+    slow_print_file("llm_functioncalling_simple.py")
+    
+    import time
+    time.sleep(2)
+    
+    print(f"{Fore.BLUE}🔄 LangChain的COT Function Call的实现{Style.RESET_ALL}")
+    slow_print_file("llm_functioncalling_cot.py")
